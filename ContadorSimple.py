@@ -28,13 +28,13 @@ class ContadorCajasApp:
 
     def create_widgets(self):
         self.frame = ttk.Frame(self.root)
-        self.frame.pack()
+        self.frame.pack(fill=tk.BOTH, expand=True)
 
-        self.canvas = tk.Canvas(self.frame)
-        self.canvas.pack()
+        self.canvas = tk.Canvas(self.frame, bg="black")
+        self.canvas.pack(fill=tk.BOTH, expand=True)
 
         controls = ttk.Frame(self.root)
-        controls.pack(pady=5)
+        controls.pack(fill=tk.X, pady=5)
 
         self.label_counter = ttk.Label(controls, text="Cajas contadas: 0")
         self.label_counter.grid(row=0, column=0, padx=5)
@@ -46,10 +46,13 @@ class ContadorCajasApp:
         self.btn_reset.grid(row=0, column=2, padx=5)
 
         self.text_log = scrolledtext.ScrolledText(self.root, width=60, height=10, state='disabled')
-        self.text_log.pack(padx=10, pady=5)
+        self.text_log.pack(fill=tk.BOTH, padx=10, pady=5, expand=True)
+
+        # Bind para actualizar tamaño del canvas al cambiar tamaño de la ventana
+        self.root.bind('<Configure>', self.resize_canvas)
 
     def set_rectangle(self):
-        # Aquí podrías abrir una ventana para pedir coordenadas, ahora fijo algunos valores rápidos
+        # Posiciones predefinidas
         self.rect_start = (150, 100)
         self.rect_width = 300
         self.rect_height = 200
@@ -72,13 +75,23 @@ class ContadorCajasApp:
         self.text_log.configure(state='disabled')
         self.text_log.yview(tk.END)
 
+    def resize_canvas(self, event):
+        self.canvas.config(width=event.width, height=event.height)
+
     def update_frame(self):
         ret, frame = self.cap.read()
         if not ret:
             self.root.after(10, self.update_frame)
             return
 
-        # Simulación de detección: detectar "movimiento" (esto es para el ejemplo)
+        # Redimensionar frame al tamaño del canvas
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+
+        if canvas_width > 10 and canvas_height > 10:
+            frame = cv2.resize(frame, (canvas_width, canvas_height))
+
+        # Simulación detección de movimiento
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (21, 21), 0)
 
@@ -98,7 +111,6 @@ class ContadorCajasApp:
         self.line_x = x + self.rect_width // 2
         cv2.line(frame, (self.line_x, y), (self.line_x, y + self.rect_height), (255, 0, 0), 2)
 
-        # Procesar contornos
         for contour in contours:
             if cv2.contourArea(contour) < 500:
                 continue
@@ -107,7 +119,6 @@ class ContadorCajasApp:
             center_x = bx + bw // 2
             center_y = by + bh // 2
 
-            # Solo objetos dentro del rectángulo
             if (x < center_x < x + self.rect_width) and (y < center_y < y + self.rect_height):
                 cv2.rectangle(frame, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
 
@@ -116,7 +127,6 @@ class ContadorCajasApp:
                 self.object_id += 1
                 self.previous_positions[obj_id] = center_x
 
-                # Ver si cruza de derecha a izquierda
                 if self.previous_positions[obj_id] > self.line_x and center_x <= self.line_x:
                     if obj_id not in self.crossed_ids:
                         self.crossed_ids.add(obj_id)
@@ -126,7 +136,6 @@ class ContadorCajasApp:
 
         self.prev_frame = blur
 
-        # Mostrar frame
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(frame_rgb)
         imgtk = ImageTk.PhotoImage(image=img)
@@ -142,6 +151,7 @@ class ContadorCajasApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    root.geometry('800x600')  # Tamaño inicial
     app = ContadorCajasApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_close)
     root.mainloop()
