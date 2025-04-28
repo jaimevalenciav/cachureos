@@ -21,33 +21,38 @@ class ContadorCajasApp:
         self.object_id = 0
         self.previous_positions = {}
 
-        # Interfaz
+        # Crear interfaz
         self.create_widgets()
 
         self.update_frame()
 
     def create_widgets(self):
-        self.frame_video = ttk.Frame(self.root)
-        self.frame_video.pack(fill=tk.BOTH, expand=True)
+        # Frame principal dividido en 2: video (arriba) y controles (abajo)
+        self.main_frame = ttk.Frame(self.root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Usamos un Label para mostrar el video
-        self.video_label = tk.Label(self.frame_video, bg="black")
+        # Frame para el video
+        self.video_frame = ttk.Frame(self.main_frame)
+        self.video_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.video_label = tk.Label(self.video_frame, bg="black")
         self.video_label.pack(fill=tk.BOTH, expand=True)
 
-        controls = ttk.Frame(self.root)
-        controls.pack(fill=tk.X, pady=5)
+        # Frame para controles
+        self.controls_frame = ttk.Frame(self.main_frame)
+        self.controls_frame.pack(fill=tk.X, pady=5)
 
-        self.label_counter = ttk.Label(controls, text="Cajas contadas: 0")
+        self.label_counter = ttk.Label(self.controls_frame, text="Cajas contadas: 0")
         self.label_counter.grid(row=0, column=0, padx=5)
 
-        self.btn_set_rect = ttk.Button(controls, text="Establecer Rectángulo", command=self.set_rectangle)
+        self.btn_set_rect = ttk.Button(self.controls_frame, text="Establecer Rectángulo", command=self.set_rectangle)
         self.btn_set_rect.grid(row=0, column=1, padx=5)
 
-        self.btn_reset = ttk.Button(controls, text="Resetear Contador", command=self.reset_counter)
+        self.btn_reset = ttk.Button(self.controls_frame, text="Resetear Contador", command=self.reset_counter)
         self.btn_reset.grid(row=0, column=2, padx=5)
 
-        self.text_log = scrolledtext.ScrolledText(self.root, width=60, height=10, state='disabled')
-        self.text_log.pack(fill=tk.BOTH, padx=10, pady=5, expand=True)
+        self.text_log = scrolledtext.ScrolledText(self.main_frame, width=60, height=8, state='disabled')
+        self.text_log.pack(fill=tk.X, padx=10, pady=5)
 
     def set_rectangle(self):
         self.rect_start = (150, 100)
@@ -78,14 +83,14 @@ class ContadorCajasApp:
             self.root.after(10, self.update_frame)
             return
 
-        # Obtener tamaño actual del label
+        # Redimensionar frame al tamaño del label
         label_width = self.video_label.winfo_width()
         label_height = self.video_label.winfo_height()
 
         if label_width > 10 and label_height > 10:
             frame = cv2.resize(frame, (label_width, label_height))
 
-        # Simulación de detección de movimiento
+        # Procesamiento
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (21, 21), 0)
 
@@ -134,7 +139,7 @@ class ContadorCajasApp:
         imgtk = ImageTk.PhotoImage(image=img)
 
         self.video_label.imgtk = imgtk
-        self.video_label.config(image=imgtk)
+        self.video_label.configure(image=imgtk)
 
         self.root.after(30, self.update_frame)
 
@@ -144,7 +149,7 @@ class ContadorCajasApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry('1000x700')  # Tamaño inicial más grande
+    root.geometry('900x700')
     app = ContadorCajasApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_close)
     root.mainloop()
