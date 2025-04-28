@@ -27,10 +27,11 @@ class ContadorCajasApp:
         self.update_frame()
 
     def create_widgets(self):
-        self.frame = ttk.Frame(self.root)
-        self.frame.pack(fill=tk.BOTH, expand=True)
+        self.frame_video = ttk.Frame(self.root)
+        self.frame_video.pack(fill=tk.BOTH, expand=True)
 
-        self.video_label = tk.Label(self.frame, bg="black")
+        # Usamos un Label para mostrar el video
+        self.video_label = tk.Label(self.frame_video, bg="black")
         self.video_label.pack(fill=tk.BOTH, expand=True)
 
         controls = ttk.Frame(self.root)
@@ -49,7 +50,6 @@ class ContadorCajasApp:
         self.text_log.pack(fill=tk.BOTH, padx=10, pady=5, expand=True)
 
     def set_rectangle(self):
-        # Posiciones predefinidas
         self.rect_start = (150, 100)
         self.rect_width = 300
         self.rect_height = 200
@@ -78,14 +78,14 @@ class ContadorCajasApp:
             self.root.after(10, self.update_frame)
             return
 
-        # Redimensionar frame al tamaño del label
+        # Obtener tamaño actual del label
         label_width = self.video_label.winfo_width()
         label_height = self.video_label.winfo_height()
 
         if label_width > 10 and label_height > 10:
             frame = cv2.resize(frame, (label_width, label_height))
 
-        # Detección de movimiento básica
+        # Simulación de detección de movimiento
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (21, 21), 0)
 
@@ -134,7 +134,7 @@ class ContadorCajasApp:
         imgtk = ImageTk.PhotoImage(image=img)
 
         self.video_label.imgtk = imgtk
-        self.video_label.configure(image=imgtk)
+        self.video_label.config(image=imgtk)
 
         self.root.after(30, self.update_frame)
 
@@ -144,7 +144,7 @@ class ContadorCajasApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry('900x700')  # Tamaño inicial más cómodo
+    root.geometry('1000x700')  # Tamaño inicial más grande
     app = ContadorCajasApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_close)
     root.mainloop()
