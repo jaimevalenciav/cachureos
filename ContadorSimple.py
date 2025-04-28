@@ -24,23 +24,22 @@ class ContadorCajasApp:
         self.create_widgets()
         self.update_frame()
 
+        # Evento resize ventana
+        self.root.bind('<Configure>', self.on_resize)
+
     def create_widgets(self):
-        # PanedWindow para dividir 70/30
-        self.paned = tk.PanedWindow(self.root, orient=tk.VERTICAL)
-        self.paned.pack(fill=tk.BOTH, expand=True)
+        # Crear dos frames principales
+        self.video_frame = tk.Frame(self.root, bg="black")
+        self.controls_frame = tk.Frame(self.root)
 
-        # Frame del video (70%)
-        self.video_frame = tk.Frame(self.paned, bg="black")
-        self.paned.add(self.video_frame, stretch="always")
+        self.video_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.controls_frame.pack(side=tk.BOTTOM, fill=tk.BOTH)
 
+        # Dentro del video_frame, el video
         self.video_label = tk.Label(self.video_frame, bg="black")
         self.video_label.pack(fill=tk.BOTH, expand=True)
 
-        # Frame de controles (30%)
-        self.controls_frame = tk.Frame(self.paned)
-        self.paned.add(self.controls_frame)
-
-        # Botones
+        # Dentro de controles, botones + log
         button_frame = tk.Frame(self.controls_frame)
         button_frame.pack(fill=tk.X, pady=5)
 
@@ -57,13 +56,16 @@ class ContadorCajasApp:
         self.text_log = scrolledtext.ScrolledText(self.controls_frame, height=8, state='disabled')
         self.text_log.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        # Configurar proporción inicial 70/30
-        self.root.after(100, self.resize_panes)
+    def on_resize(self, event):
+        # Al cambiar tamaño ventana, ajustamos los frames
+        total_height = self.root.winfo_height()
 
-    def resize_panes(self):
-        h = self.root.winfo_height()
-        if h > 0:
-            self.paned.sash_place(0, 0, int(h * 0.7))
+        # 70% video / 30% controles
+        video_height = int(total_height * 0.7)
+        controls_height = total_height - video_height
+
+        self.video_frame.config(height=video_height)
+        self.controls_frame.config(height=controls_height)
 
     def set_rectangle(self):
         self.rect_start = (150, 100)
@@ -94,7 +96,7 @@ class ContadorCajasApp:
             self.root.after(10, self.update_frame)
             return
 
-        # Redimensionar frame al tamaño del video_label
+        # Redimensionar frame al tamaño actual del video_label
         label_width = self.video_label.winfo_width()
         label_height = self.video_label.winfo_height()
 
@@ -158,7 +160,7 @@ class ContadorCajasApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry('900x700')
+    root.geometry('1000x700')
     app = ContadorCajasApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_close)
     root.mainloop()
