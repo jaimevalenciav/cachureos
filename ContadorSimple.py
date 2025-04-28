@@ -1,7 +1,6 @@
-import cv2
 import tkinter as tk
 from tkinter import ttk
-from tkinter import scrolledtext
+import cv2
 from PIL import Image, ImageTk
 
 class ContadorCajasApp:
@@ -9,86 +8,69 @@ class ContadorCajasApp:
         self.root = root
         self.root.title("Contador de Cajas")
 
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(0)  # Usa la cámara 0
 
         # Variables
-        self.rect_start = (100, 100)
-        self.rect_width = 200
-        self.rect_height = 300
-        self.line_x = self.rect_start[0] + self.rect_width // 2
-        self.counter = 0
-        self.crossed_ids = set()
-        self.object_id = 0
-        self.previous_positions = {}
+        self.rectangle_points = []
+        self.setting_rectangle = False
+        self.contador = 0
 
-        self.create_widgets()
+        # Layout
+        self.setup_layout()
+
+        # Empezar a actualizar frames
         self.update_frame()
 
-        # Evento resize ventana
-        self.root.bind('<Configure>', self.on_resize)
-
-    def create_widgets(self):
-        # Crear dos frames principales
+    def setup_layout(self):
+        # Frame para video
         self.video_frame = tk.Frame(self.root, bg="black")
-        self.controls_frame = tk.Frame(self.root)
+        self.video_frame.place(relx=0, rely=0, relwidth=0.7, relheight=1)
 
-        self.video_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        self.controls_frame.pack(side=tk.BOTTOM, fill=tk.BOTH)
-
-        # Dentro del video_frame, el video
-        self.video_label = tk.Label(self.video_frame, bg="black")
+        self.video_label = tk.Label(self.video_frame)
         self.video_label.pack(fill=tk.BOTH, expand=True)
+        self.video_label.bind("<Button-1>", self.get_rectangle_point)
 
-        # Dentro de controles, botones + log
-        button_frame = tk.Frame(self.controls_frame)
-        button_frame.pack(fill=tk.X, pady=5)
+        # Frame para controles
+        self.controls_frame = tk.Frame(self.root, bg="lightgray")
+        self.controls_frame.place(relx=0.7, rely=0, relwidth=0.3, relheight=1)
 
-        self.label_counter = ttk.Label(button_frame, text="Cajas contadas: 0")
-        self.label_counter.pack(side=tk.LEFT, padx=5)
+        self.btn_set_rect = ttk.Button(self.controls_frame, text="Establecer Rectángulo", command=self.set_rectangle)
+        self.btn_set_rect.pack(pady=10, padx=10, fill='x')
 
-        self.btn_set_rect = ttk.Button(button_frame, text="Establecer Rectángulo", command=self.set_rectangle)
-        self.btn_set_rect.pack(side=tk.LEFT, padx=5)
+        self.btn_reset_counter = ttk.Button(self.controls_frame, text="Reiniciar Contador", command=self.reset_counter)
+        self.btn_reset_counter.pack(pady=10, padx=10, fill='x')
 
-        self.btn_reset = ttk.Button(button_frame, text="Resetear Contador", command=self.reset_counter)
-        self.btn_reset.pack(side=tk.LEFT, padx=5)
+        self.counter_label = ttk.Label(self.controls_frame, text="Cajas contadas: 0", font=("Arial", 16))
+        self.counter_label.pack(pady=20)
 
-        # Log de mensajes
-        self.text_log = scrolledtext.ScrolledText(self.controls_frame, height=8, state='disabled')
-        self.text_log.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        self.log_text = tk.Text(self.controls_frame, height=10)
+        self.log_text.pack(pady=10, padx=10, fill='both', expand=True)
 
-    def on_resize(self, event):
-        # Al cambiar tamaño ventana, ajustamos los frames
-        total_height = self.root.winfo_height()
-
-        # 70% video / 30% controles
-        video_height = int(total_height * 0.7)
-        controls_height = total_height - video_height
-
-        self.video_frame.config(height=video_height)
-        self.controls_frame.config(height=controls_height)
+    def log(self, message):
+        self.log_text.insert(tk.END, message + "\n")
+        self.log_text.see(tk.END)
 
     def set_rectangle(self):
-        self.rect_start = (150, 100)
-        self.rect_width = 300
-        self.rect_height = 200
-        self.line_x = self.rect_start[0] + self.rect_width // 2
-        self.log_message("Rectángulo establecido manualmente.")
+        self.rectangle_points = []
+        self.setting_rectangle = True
+        self.log("Haga click en dos puntos para definir el rectángulo.")
 
     def reset_counter(self):
-        self.counter = 0
-        self.label_counter.config(text=f"Cajas contadas: {self.counter}")
-        self.crossed_ids.clear()
-        self.previous_positions.clear()
-        self.text_log.configure(state='normal')
-        self.text_log.delete('1.0', tk.END)
-        self.text_log.configure(state='disabled')
-        self.log_message("Contador reiniciado.")
+        self.contador = 0
+        self.counter_label.config(text=f"Cajas contadas: {self.contador}")
+        self.log("Contador reiniciado.")
 
-    def log_message(self, message):
-        self.text_log.configure(state='normal')
-        self.text_log.insert(tk.END, message + "\n")
-        self.text_log.configure(state='disabled')
-        self.text_log.yview(tk.END)
+    def get_rectangle_point(self, event):
+        if not self.setting_rectangle:
+            return
+
+        if len(self.rectangle_points) < 2:
+            self.rectangle_points.append((event.x, event.y))
+            self.log(f"Punto {len(self.rectangle_points)} establecido: {event.x}, {event.y}")
+
+        if len(self.rectangle_points) == 2:
+            self.setting_rectangle = False
+            self.log(f"Rectángulo finalizado: {self.rectangle_points}")
 
     def update_frame(self):
         ret, frame = self.cap.read()
@@ -96,18 +78,22 @@ class ContadorCajasApp:
             self.root.after(10, self.update_frame)
             return
 
-        # Redimensionar frame al tamaño actual del video_label
+        frame = cv2.flip(frame, 1)  # Voltear horizontal para que sea espejo
+
+        # Redimensionar frame al tamaño del label
         label_width = self.video_label.winfo_width()
         label_height = self.video_label.winfo_height()
 
-        if label_width > 10 and label_height > 10:
+        if label_width > 0 and label_height > 0:
             frame = cv2.resize(frame, (label_width, label_height))
 
+        # Detección simple de movimiento
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (21, 21), 0)
 
-        if not hasattr(self, 'prev_frame'):
+        if not hasattr(self, 'prev_frame') or self.prev_frame.shape != blur.shape:
             self.prev_frame = blur
+            self.display_frame(frame)
             self.root.after(10, self.update_frame)
             return
 
@@ -116,51 +102,55 @@ class ContadorCajasApp:
         dilated = cv2.dilate(thresh, None, iterations=2)
         contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        x, y = self.rect_start
-        cv2.rectangle(frame, (x, y), (x + self.rect_width, y + self.rect_height), (0, 255, 255), 2)
-        self.line_x = x + self.rect_width // 2
-        cv2.line(frame, (self.line_x, y), (self.line_x, y + self.rect_height), (255, 0, 0), 2)
-
         for contour in contours:
             if cv2.contourArea(contour) < 500:
                 continue
+            x, y, w, h = cv2.boundingRect(contour)
+            # Dibujar bounding box en azul
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-            (bx, by, bw, bh) = cv2.boundingRect(contour)
-            center_x = bx + bw // 2
-            center_y = by + bh // 2
+            if len(self.rectangle_points) == 2:
+                (x1, y1), (x2, y2) = self.rectangle_points
+                # Asegurar orden correcto de coordenadas
+                x_min, x_max = min(x1, x2), max(x1, x2)
+                y_min, y_max = min(y1, y2), max(y1, y2)
 
-            if (x < center_x < x + self.rect_width) and (y < center_y < y + self.rect_height):
-                cv2.rectangle(frame, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
+                if y_min <= y <= y_max and x_min <= x + w//2 <= x_max:
+                    # Si el centro de la caja cruza la línea azul
+                    center_line_x = (x_min + x_max) // 2
+                    if abs((x + w//2) - center_line_x) < 10:
+                        self.contador += 1
+                        self.counter_label.config(text=f"Cajas contadas: {self.contador}")
+                        self.log(f"Caja contada en x={x+w//2}, y={y}")
 
-                obj_id = self.object_id
-                self.object_id += 1
-                self.previous_positions[obj_id] = center_x
+        # Dibujar rectángulo amarillo y línea azul
+        if len(self.rectangle_points) == 2:
+            (x1, y1), (x2, y2) = self.rectangle_points
+            x_min, x_max = min(x1, x2), max(x1, x2)
+            y_min, y_max = min(y1, y2), max(y1, y2)
 
-                if self.previous_positions[obj_id] > self.line_x and center_x <= self.line_x:
-                    if obj_id not in self.crossed_ids:
-                        self.crossed_ids.add(obj_id)
-                        self.counter += 1
-                        self.label_counter.config(text=f"Cajas contadas: {self.counter}")
-                        self.log_message(f"Caja cruzó la línea - ID {obj_id}")
+            cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 255), 2)
+            center_line_x = (x_min + x_max) // 2
+            cv2.line(frame, (center_line_x, y_min), (center_line_x, y_max), (255, 0, 0), 2)
 
         self.prev_frame = blur
+        self.display_frame(frame)
+        self.root.after(10, self.update_frame)
 
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        img = Image.fromarray(frame_rgb)
+    def display_frame(self, frame):
+        img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(img)
         imgtk = ImageTk.PhotoImage(image=img)
-
         self.video_label.imgtk = imgtk
-        self.video_label.configure(image=imgtk)
+        self.video_label.config(image=imgtk)
 
-        self.root.after(30, self.update_frame)
-
-    def on_close(self):
+    def on_closing(self):
         self.cap.release()
         self.root.destroy()
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry('1000x700')
     app = ContadorCajasApp(root)
-    root.protocol("WM_DELETE_WINDOW", app.on_close)
+    root.protocol("WM_DELETE_WINDOW", app.on_closing)
+    root.geometry("1200x700")  # Ventana inicial grande
     root.mainloop()
