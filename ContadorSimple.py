@@ -1,0 +1,147 @@
+import cv2
+import tkinter as tk
+from tkinter import ttk
+from tkinter import scrolledtext
+from PIL import Image, ImageTk
+
+class ContadorCajasApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Contador de Cajas")
+
+        self.cap = cv2.VideoCapture(0)
+
+        # Variables
+        self.rect_start = (100, 100)
+        self.rect_width = 200
+        self.rect_height = 300
+        self.line_x = self.rect_start[0] + self.rect_width // 2
+        self.counter = 0
+        self.crossed_ids = set()
+        self.object_id = 0
+        self.previous_positions = {}
+
+        # Interfaz
+        self.create_widgets()
+
+        self.update_frame()
+
+    def create_widgets(self):
+        self.frame = ttk.Frame(self.root)
+        self.frame.pack()
+
+        self.canvas = tk.Canvas(self.frame)
+        self.canvas.pack()
+
+        controls = ttk.Frame(self.root)
+        controls.pack(pady=5)
+
+        self.label_counter = ttk.Label(controls, text="Cajas contadas: 0")
+        self.label_counter.grid(row=0, column=0, padx=5)
+
+        self.btn_set_rect = ttk.Button(controls, text="Establecer Rectángulo", command=self.set_rectangle)
+        self.btn_set_rect.grid(row=0, column=1, padx=5)
+
+        self.btn_reset = ttk.Button(controls, text="Resetear Contador", command=self.reset_counter)
+        self.btn_reset.grid(row=0, column=2, padx=5)
+
+        self.text_log = scrolledtext.ScrolledText(self.root, width=60, height=10, state='disabled')
+        self.text_log.pack(padx=10, pady=5)
+
+    def set_rectangle(self):
+        # Aquí podrías abrir una ventana para pedir coordenadas, ahora fijo algunos valores rápidos
+        self.rect_start = (150, 100)
+        self.rect_width = 300
+        self.rect_height = 200
+        self.line_x = self.rect_start[0] + self.rect_width // 2
+        self.log_message("Rectángulo establecido manualmente.")
+
+    def reset_counter(self):
+        self.counter = 0
+        self.label_counter.config(text=f"Cajas contadas: {self.counter}")
+        self.crossed_ids.clear()
+        self.previous_positions.clear()
+        self.text_log.configure(state='normal')
+        self.text_log.delete('1.0', tk.END)
+        self.text_log.configure(state='disabled')
+        self.log_message("Contador reiniciado.")
+
+    def log_message(self, message):
+        self.text_log.configure(state='normal')
+        self.text_log.insert(tk.END, message + "\n")
+        self.text_log.configure(state='disabled')
+        self.text_log.yview(tk.END)
+
+    def update_frame(self):
+        ret, frame = self.cap.read()
+        if not ret:
+            self.root.after(10, self.update_frame)
+            return
+
+        # Simulación de detección: detectar "movimiento" (esto es para el ejemplo)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(gray, (21, 21), 0)
+
+        if not hasattr(self, 'prev_frame'):
+            self.prev_frame = blur
+            self.root.after(10, self.update_frame)
+            return
+
+        delta_frame = cv2.absdiff(self.prev_frame, blur)
+        thresh = cv2.threshold(delta_frame, 30, 255, cv2.THRESH_BINARY)[1]
+        dilated = cv2.dilate(thresh, None, iterations=2)
+        contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Dibujar rectángulo amarillo y línea azul
+        x, y = self.rect_start
+        cv2.rectangle(frame, (x, y), (x + self.rect_width, y + self.rect_height), (0, 255, 255), 2)
+        self.line_x = x + self.rect_width // 2
+        cv2.line(frame, (self.line_x, y), (self.line_x, y + self.rect_height), (255, 0, 0), 2)
+
+        # Procesar contornos
+        for contour in contours:
+            if cv2.contourArea(contour) < 500:
+                continue
+
+            (bx, by, bw, bh) = cv2.boundingRect(contour)
+            center_x = bx + bw // 2
+            center_y = by + bh // 2
+
+            # Solo objetos dentro del rectángulo
+            if (x < center_x < x + self.rect_width) and (y < center_y < y + self.rect_height):
+                cv2.rectangle(frame, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
+
+                # Asignar ID simulado
+                obj_id = self.object_id
+                self.object_id += 1
+                self.previous_positions[obj_id] = center_x
+
+                # Ver si cruza de derecha a izquierda
+                if self.previous_positions[obj_id] > self.line_x and center_x <= self.line_x:
+                    if obj_id not in self.crossed_ids:
+                        self.crossed_ids.add(obj_id)
+                        self.counter += 1
+                        self.label_counter.config(text=f"Cajas contadas: {self.counter}")
+                        self.log_message(f"Caja cruzó la línea - ID {obj_id}")
+
+        self.prev_frame = blur
+
+        # Mostrar frame
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(frame_rgb)
+        imgtk = ImageTk.PhotoImage(image=img)
+
+        self.canvas.create_image(0, 0, anchor=tk.NW, image=imgtk)
+        self.canvas.imgtk = imgtk
+
+        self.root.after(30, self.update_frame)
+
+    def on_close(self):
+        self.cap.release()
+        self.root.destroy()
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ContadorCajasApp(root)
+    root.protocol("WM_DELETE_WINDOW", app.on_close)
+    root.mainloop()
