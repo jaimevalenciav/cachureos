@@ -30,8 +30,8 @@ class ContadorCajasApp:
         self.frame = ttk.Frame(self.root)
         self.frame.pack(fill=tk.BOTH, expand=True)
 
-        self.canvas = tk.Canvas(self.frame, bg="black")
-        self.canvas.pack(fill=tk.BOTH, expand=True)
+        self.video_label = tk.Label(self.frame, bg="black")
+        self.video_label.pack(fill=tk.BOTH, expand=True)
 
         controls = ttk.Frame(self.root)
         controls.pack(fill=tk.X, pady=5)
@@ -47,9 +47,6 @@ class ContadorCajasApp:
 
         self.text_log = scrolledtext.ScrolledText(self.root, width=60, height=10, state='disabled')
         self.text_log.pack(fill=tk.BOTH, padx=10, pady=5, expand=True)
-
-        # Bind para actualizar tamaño del canvas al cambiar tamaño de la ventana
-        self.root.bind('<Configure>', self.resize_canvas)
 
     def set_rectangle(self):
         # Posiciones predefinidas
@@ -75,23 +72,20 @@ class ContadorCajasApp:
         self.text_log.configure(state='disabled')
         self.text_log.yview(tk.END)
 
-    def resize_canvas(self, event):
-        self.canvas.config(width=event.width, height=event.height)
-
     def update_frame(self):
         ret, frame = self.cap.read()
         if not ret:
             self.root.after(10, self.update_frame)
             return
 
-        # Redimensionar frame al tamaño del canvas
-        canvas_width = self.canvas.winfo_width()
-        canvas_height = self.canvas.winfo_height()
+        # Redimensionar frame al tamaño del label
+        label_width = self.video_label.winfo_width()
+        label_height = self.video_label.winfo_height()
 
-        if canvas_width > 10 and canvas_height > 10:
-            frame = cv2.resize(frame, (canvas_width, canvas_height))
+        if label_width > 10 and label_height > 10:
+            frame = cv2.resize(frame, (label_width, label_height))
 
-        # Simulación detección de movimiento
+        # Detección de movimiento básica
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (21, 21), 0)
 
@@ -122,7 +116,6 @@ class ContadorCajasApp:
             if (x < center_x < x + self.rect_width) and (y < center_y < y + self.rect_height):
                 cv2.rectangle(frame, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
 
-                # Asignar ID simulado
                 obj_id = self.object_id
                 self.object_id += 1
                 self.previous_positions[obj_id] = center_x
@@ -140,8 +133,8 @@ class ContadorCajasApp:
         img = Image.fromarray(frame_rgb)
         imgtk = ImageTk.PhotoImage(image=img)
 
-        self.canvas.create_image(0, 0, anchor=tk.NW, image=imgtk)
-        self.canvas.imgtk = imgtk
+        self.video_label.imgtk = imgtk
+        self.video_label.configure(image=imgtk)
 
         self.root.after(30, self.update_frame)
 
@@ -151,7 +144,7 @@ class ContadorCajasApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry('800x600')  # Tamaño inicial
+    root.geometry('900x700')  # Tamaño inicial más cómodo
     app = ContadorCajasApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_close)
     root.mainloop()
